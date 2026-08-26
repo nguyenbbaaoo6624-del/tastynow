@@ -26,4 +26,10 @@ ws.on('open', () => {
 
 ws.on('close', () => {
     console.log('[Driver App] 🔴 Đã mất kết nối tới máy chủ');
+    process.exit(1);
+});
+
+// Tối ưu: Bổ sung xử lý lỗi kết nối
+ws.on('error', (error) => {
+    console.error(`[Driver App] ❌ Lỗi WebSocket: ${error.message}`);
 });

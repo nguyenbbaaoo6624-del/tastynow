@@ -42,7 +42,8 @@ async function startLocationService() {
         sendLog('🟢 Một tài xế vừa kết nối (WebSocket Mở)', 'success');
         ws.on('message', async (message) => {
             try {
-                const data = JSON.parse(message);
+                // Tối ưu: Ép kiểu Buffer sang String trước khi parse
+                const data = JSON.parse(message.toString());
                 if (data.type === 'GPS_UPDATE') {
                     await redisClient.geoAdd('driver_locations', {
                         longitude: data.lng,
