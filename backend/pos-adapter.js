@@ -8,24 +8,22 @@ app.use(cors());
 
 let clients = [];
 
-// Hàm đẩy log ra cả Terminal và giao diện Web
 function sendLog(message, type = 'info') {
     const time = new Date().toLocaleTimeString();
     let icon = '⚙️';
     if(type === 'error') icon = '❌';
     if(type === 'success') icon = '✅';
     if(type === 'warn') icon = '♻️';
-    
     const log = `[${time}] ${icon} ${message}`;
     console.log(log);
     clients.forEach(c => c.write(`data: ${JSON.stringify({ log })}\n\n`));
 }
 
-// Mở luồng kết nối SSE cho Web
 app.get('/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
     clients.push(res);
     req.on('close', () => { clients = clients.filter(c => c !== res); });
 });
@@ -61,23 +59,24 @@ async function startAdapter() {
                     </soapenv:Envelope>
                 `.trim();
 
-                sendLog(`Đã dịch JSON sang XML, gửi xuống POS...`, 'info');
-
                 try {
+                    // 1. Gửi xuống Mock POS
                     await axios.post(MOCK_POS_URL, xmlPayload, {
                         headers: { 'Content-Type': 'text/xml' },
                         timeout: 3000 
                     });
+                    sendLog(`Thành công! POS đã nhận.`, 'success');
 
-                    sendLog(`Thành công! POS đã nhận. (Gửi ACK để xóa đơn)`, 'success');
+                    // 2. Cập nhật Database
+                    await axios.put(`http://localhost:6000/orders/${orderData.orderId}`, { status: 'COMPLETED' });
+                    sendLog(`Đã đồng bộ trạng thái COMPLETED lên Database cho đơn ${orderData.orderId}`, 'success');
+
+                    // 3. Xóa đơn khỏi Queue
                     channel.ack(msg);
                 } catch (error) {
-                    sendLog(`LỖI GIAO TIẾP POS: ${error.message}`, 'error');
-                    sendLog(`Kích hoạt Requeue: Trả đơn ${orderData.orderId} về lại Queue (Zero Message Loss).`, 'warn');
-                    
-                    setTimeout(() => {
-                        channel.nack(msg, false, true); 
-                    }, 3000);
+                    sendLog(`LỖI GIAO TIẾP HOẶC DB: ${error.message}`, 'error');
+                    sendLog(`Kích hoạt Requeue: Trả đơn ${orderData.orderId} về lại Queue.`, 'warn');
+                    setTimeout(() => { channel.nack(msg, false, true); }, 3000);
                 }
             }
         });

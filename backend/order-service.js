@@ -1,6 +1,7 @@
 const express = require('express');
 const amqp = require('amqplib');
 const cors = require('cors');
+const axios = require('axios');
 
 const app = express();
 app.use(express.json());
@@ -8,10 +9,8 @@ app.use(cors());
 
 const RABBITMQ_URL = 'amqp://admin:password123@localhost:5672';
 const QUEUE_NAME = 'order_queue';
-
 let channel = null;
 
-// Kết nối RabbitMQ
 async function connectRabbitMQ() {
     try {
         const connection = await amqp.connect(RABBITMQ_URL);
@@ -24,7 +23,6 @@ async function connectRabbitMQ() {
 }
 connectRabbitMQ();
 
-// API Đặt món - Hiện thực ADR-001 (SLA < 3s)
 app.post('/api/orders', async (req, res) => {
     const orderData = {
         orderId: `ORD-${Date.now()}`,
@@ -33,23 +31,27 @@ app.post('/api/orders', async (req, res) => {
         timestamp: new Date().toISOString()
     };
 
-    if (channel) {
-        // Đẩy vào Queue
-        channel.sendToQueue(QUEUE_NAME, Buffer.from(JSON.stringify(orderData)), { persistent: true });
-        console.log(`[Order Service] Đã đẩy đơn hàng ${orderData.orderId} vào Queue.`);
-        
-        // Phản hồi ngay lập tức cho App
-        return res.status(200).json({
-            message: 'Đang gửi đơn đến nhà hàng...',
+    try {
+        // Lưu vào DB trạng thái PENDING
+        await axios.post('http://localhost:6000/orders', {
             orderId: orderData.orderId,
-            sla_achieved: true
+            total: orderData.total,
+            status: 'PENDING'
         });
-    } else {
-        return res.status(500).json({ error: 'Lỗi hệ thống Message Broker' });
+
+        if (channel) {
+            channel.sendToQueue(QUEUE_NAME, Buffer.from(JSON.stringify(orderData)), { persistent: true });
+            console.log(`[Order Service] Đã đẩy đơn hàng ${orderData.orderId} vào Queue.`);
+            
+            return res.status(200).json({
+                message: 'Đang gửi đơn đến nhà hàng...',
+                orderId: orderData.orderId,
+                sla_achieved: true
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({ error: 'Lỗi hệ thống ghi nhận đơn' });
     }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Order Service đang chạy tại: http://localhost:${PORT}`);
-});
+app.listen(3000, () => console.log('Order Service đang chạy tại cổng 3000'));
