@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TastyNow - Complete Architecture Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --primary: #3b82f6;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --term-bg: #1e293b;
+            --term-text: #f8fafc;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 1.5rem 2rem;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .header { text-align: center; margin-bottom: 2rem; }
+        .header h1 {
+            font-size: 2rem; font-weight: 700; margin: 0 0 0.5rem 0;
+            background: linear-gradient(135deg, #0f172a, #334155);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p { color: var(--text-muted); font-size: 1rem; margin: 0; }
+
+        .container {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;
+            max-width: 1400px; margin: 0 auto;
+        }
+
+        .card {
+            background: var(--bg-card); border-radius: 12px; padding: 1.25rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid var(--border);
+            display: flex; flex-direction: column; height: 450px;
+        }
+
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);
+        }
+        .card-header h2 { font-size: 1.1rem; font-weight: 600; margin: 0; }
+
+        .status-badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+        .status-ok { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .status-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+        .btn {
+            width: 100%; padding: 0.75rem; border: none; border-radius: 8px;
+            font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+            color: white; margin-bottom: 1rem;
+        }
+        
+        .btn-order { background: linear-gradient(135deg, var(--primary), #2563eb); }
+        .btn-chaos { background: linear-gradient(135deg, var(--danger), #dc2626); }
+        .btn-driver { background: linear-gradient(135deg, var(--warning), #d97706); }
+
+        .terminal {
+            background: var(--term-bg); border-radius: 8px; flex: 1;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        .terminal-header { background: #0f172a; padding: 0.5rem 0.75rem; display: flex; gap: 0.4rem; align-items: center; }
+        .mac-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-red { background: #ff5f56; } .dot-yellow { background: #ffbd2e; } .dot-green { background: #27c93f; }
+
+        .log-content {
+            padding: 0.75rem; overflow-y: auto; flex: 1; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem; line-height: 1.5; color: var(--term-text);
+        }
+        .log-content::-webkit-scrollbar { width: 4px; }
+        .log-content::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+
+        .log-line { margin-bottom: 0.4rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05); word-wrap: break-word; }
+        .log-line:last-child { border-bottom: none; }
+        .highlight { color: #4cd137; font-weight: bold; }
+        
+        .driver-view { display: flex; gap: 1rem; flex: 1; overflow: hidden; }
+        .driver-view .terminal { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TastyNow Complete Architecture Demo</h1>
+        <p>Tích hợp Đặt món (SLA &lt; 3s, Queue) và Định vị Tài xế (WebSocket, Redis GeoCache)</p>
+    </div>
+
+    <div class="container">
+        <!-- Ô 1: Customer App -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📱 Customer App</h2>
+            </div>
+            <button class="btn btn-order" onclick="placeOrder()">🛒 Xác nhận đặt món (SLA &lt; 3s)</button>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                </div>
+                <div id="customer-log" class="log-content"></div>
+            </div>
+        </div>
+
+        <!-- Ô 2: RabbitMQ & Adapter -->
+        <div class="card">
+            <div class="card-header">
+                <h2>⚙️ RabbitMQ & POS Adapter</h2>
+                <span id="network-status" class="status-badge status-ok">MẠNG POS ỔN ĐỊNH</span>
+            </div>
+            <button class="btn btn-chaos" onclick="toggleChaos()" id="btn-chaos">🔌 Giả lập sập mạng POS (Chaos Mode)</button>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                </div>
+                <div id="adapter-log" class="log-content"></div>
+            </div>
+        </div>
+
+        <!-- Ô 3: POS System -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🏪 Mock POS System</h2>
+            </div>
+            <div style="height: 48px; margin-bottom: 1rem;"></div>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                </div>
+                <div id="pos-log" class="log-content"></div>
+            </div>
+        </div>
+
+        <!-- Ô 4: Driver & Location Service -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🛵 Driver App & Location Service (WebSocket)</h2>
+            </div>
+            <button class="btn btn-driver" onclick="toggleDriver()" id="btn-driver">📡 Bật App Tài xế (Bắt đầu đẩy GPS)</button>
+            
+            <div class="driver-view">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                        <span style="color: #64748b; font-size: 0.7rem; margin-left: 5px;">Driver App (Client)</span>
+                    </div>
+                    <div id="driver-log" class="log-content"></div>
+                </div>
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                        <span style="color: #64748b; font-size: 0.7rem; margin-left: 5px;">Location Service (Server)</span>
+                    </div>
+                    <div id="location-log" class="log-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function logToBox(boxId, message) {
+            const box = document.getElementById(boxId);
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            div.innerHTML = message;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function placeOrder() {
+            const time = new Date().toLocaleTimeString();
+            logToBox('customer-log', `[${time}] 📤 Đang gửi request đặt món...`);
+            const startTime = Date.now();
+            try {
+                const response = await fetch('http://localhost:3000/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: ['1x Gà Rán', '1x Khoai Tây'] })
+                });
+                const data = await response.json();
+                const latency = Date.now() - startTime;
+                
+                logToBox('customer-log', `[${new Date().toLocaleTimeString()}] ✅ Phản hồi: ${data.message}`);
+                logToBox('customer-log', `[${new Date().toLocaleTimeString()}] ⏱️ Thời gian SLA: <span class="highlight">${latency} ms</span>`);
+            } catch (error) {
+                logToBox('customer-log', `[${new Date().toLocaleTimeString()}] ❌ Lỗi kết nối: Server không phản hồi`);
+            }
+        }
+
+        async function toggleChaos() {
+            try {
+                const response = await fetch('http://localhost:4000/toggle-chaos');
+                const data = await response.json();
+                const statusBadge = document.getElementById('network-status');
+                const btnChaos = document.getElementById('btn-chaos');
+                
+                if (data.status) {
+                    statusBadge.className = 'status-badge status-error';
+                    statusBadge.innerText = 'ĐỨT MẠNG / TREO';
+                    btnChaos.innerHTML = 'Khôi phục mạng POS';
+                    btnChaos.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                } else {
+                    statusBadge.className = 'status-badge status-ok';
+                    statusBadge.innerText = 'MẠNG POS ỔN ĐỊNH';
+                    btnChaos.innerHTML = '🔌 Giả lập sập mạng POS (Chaos Mode)';
+                    btnChaos.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                }
+            } catch (error) {
+                alert('Không thể kết nối đến Mock POS.');
+            }
+        }
+
+        let driverWs = null;
+        let gpsInterval = null;
+
+        function toggleDriver() {
+            const btnDriver = document.getElementById('btn-driver');
+            if (driverWs) {
+                clearInterval(gpsInterval);
+                driverWs.close();
+                driverWs = null;
+                btnDriver.innerHTML = '📡 Bật App Tài xế (Bắt đầu đẩy GPS)';
+                btnDriver.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+                logToBox('driver-log', `[${new Date().toLocaleTimeString()}] 🔴 Đã tắt ứng dụng tài xế.`);
+            } else {
+                driverWs = new WebSocket('ws://localhost:5001');
+                const driverId = `DRV-${Math.floor(Math.random() * 1000)}`;
+                
+                driverWs.onopen = () => {
+                    logToBox('driver-log', `[${new Date().toLocaleTimeString()}] 🟢 Đã kết nối WebSocket (ID: ${driverId})`);
+                    btnDriver.innerHTML = 'Tắt App Tài xế';
+                    btnDriver.style.background = 'linear-gradient(135deg, #64748b, #475569)';
+                    
+                    gpsInterval = setInterval(() => {
+                        const lat = 10.762622 + (Math.random() * 0.01);
+                        const lng = 106.660172 + (Math.random() * 0.01);
+                        const payload = JSON.stringify({ type: 'GPS_UPDATE', driverId, lat, lng });
+                        driverWs.send(payload);
+                        logToBox('driver-log', `[${new Date().toLocaleTimeString()}] 🚀 Đẩy tọa độ: [${lat.toFixed(4)}, ${lng.toFixed(4)}]`);
+                    }, 5000);
+                };
+                driverWs.onclose = () => {
+                    logToBox('driver-log', `[${new Date().toLocaleTimeString()}] 🔴 Đã ngắt kết nối với máy chủ.`);
+                    clearInterval(gpsInterval);
+                    driverWs = null;
+                    btnDriver.innerHTML = '📡 Bật App Tài xế (Bắt đầu đẩy GPS)';
+                    btnDriver.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+                };
+                driverWs.onerror = () => {
+                    logToBox('driver-log', `[${new Date().toLocaleTimeString()}] ❌ Lỗi kết nối WebSocket.`);
+                };
+            }
+        }
+
+        const adapterSource = new EventSource('http://localhost:4001/stream');
+        adapterSource.onmessage = (event) => logToBox('adapter-log', JSON.parse(event.data).log);
+
+        const posSource = new EventSource('http://localhost:4000/stream');
+        posSource.onmessage = (event) => logToBox('pos-log', JSON.parse(event.data).log);
+
+        const locationSource = new EventSource('http://localhost:5002/stream');
+        locationSource.onmessage = (event) => logToBox('location-log', JSON.parse(event.data).log);
+    </script>
+</body>
+</html>
