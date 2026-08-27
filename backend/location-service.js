@@ -1,62 +1,67 @@
+// (Cổng 5001 WSS / 5002 HTTP): Duy trì kết nối trạng thái (Stateful) với tài xế qua WebSocket. 
+// Lưu trữ tọa độ GPS (mô phỏng GeoCache) và cung cấp API đẩy thông báo có đơn mới ngược về ứng dụng tài xế.
 const WebSocket = require('ws');
-const { createClient } = require('redis');
 const express = require('express');
 const cors = require('cors');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
-let clients = [];
-function sendLog(message, type = 'info') {
-    const time = new Date().toLocaleTimeString();
-    let icon = '📍';
-    if(type === 'error') icon = '❌';
-    if(type === 'success') icon = '✅';
-    const log = `[${time}] ${icon} ${message}`;
-    console.log(log);
-    clients.forEach(c => c.write(`data: ${JSON.stringify({ log })}\n\n`));
-}
+const clientsSSE = [];
+const drivers = new Map(); 
+const driverSockets = new Map(); 
 
 app.get('/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    clients.push(res);
-    req.on('close', () => { clients = clients.filter(c => c !== res); });
-});
-app.listen(5002, () => console.log('Location Service UI Stream chạy tại cổng 5002'));
-
-const REDIS_URL = 'redis://localhost:6379';
-let redisClient;
-
-async function startLocationService() {
-    redisClient = createClient({ url: REDIS_URL });
-    redisClient.on('error', (err) => sendLog(`[Redis] Lỗi: ${err.message}`, 'error'));
-    await redisClient.connect();
-    sendLog('Đã kết nối thành công tới Redis (GeoCache)', 'success');
-
-    const wss = new WebSocket.Server({ port: 5001 });
-    sendLog('WebSocket Server đang chạy tại: ws://localhost:5001', 'success');
-
-    wss.on('connection', (ws) => {
-        sendLog('🟢 Một tài xế vừa kết nối (WebSocket Mở)', 'success');
-        ws.on('message', async (message) => {
-            try {
-                // Tối ưu: Ép kiểu Buffer sang String trước khi parse
-                const data = JSON.parse(message.toString());
-                if (data.type === 'GPS_UPDATE') {
-                    await redisClient.geoAdd('driver_locations', {
-                        longitude: data.lng,
-                        latitude: data.lat,
-                        member: data.driverId
-                    });
-                    sendLog(`Cập nhật GPS cho ${data.driverId}: [${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}]`);
-                }
-            } catch (error) {
-                sendLog('Lỗi parse dữ liệu', 'error');
-            }
-        });
-        ws.on('close', () => sendLog('🔴 Tài xế đã ngắt kết nối', 'error'));
+    res.flushHeaders();
+    clientsSSE.push(res);
+    req.on('close', () => {
+        const index = clientsSSE.indexOf(res);
+        if (index !== -1) clientsSSE.splice(index, 1);
     });
+});
+
+function logToUI(message) {
+    console.log(message);
+    clientsSSE.forEach(c => c.write(`data: ${JSON.stringify({ log: message })}\n\n`));
 }
-startLocationService();
+
+app.get('/drivers', (req, res) => {
+    res.json(Object.fromEntries(drivers));
+});
+
+app.post('/push-order', (req, res) => {
+    const { driverId, orderId } = req.body;
+    const ws = driverSockets.get(driverId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'NEW_ORDER', orderId }));
+        logToUI(`[Matching] Đã Push đơn ${orderId} tới thiết bị tài xế ${driverId}`);
+    }
+    res.status(200).send();
+});
+
+app.listen(5002, () => console.log('Location Service UI Stream cổng 5002'));
+
+const wss = new WebSocket.Server({ port: 5001 }, () => console.log('WebSocket Server cổng 5001'));
+wss.on('connection', (ws) => {
+    let currentDriverId = null;
+    ws.on('message', (message) => {
+        const data = JSON.parse(message);
+        if (data.type === 'GPS_UPDATE') {
+            currentDriverId = data.driverId;
+            drivers.set(data.driverId, { lat: data.lat, lng: data.lng });
+            driverSockets.set(data.driverId, ws);
+            logToUI(`[GeoCache] Đã cập nhật tọa độ Driver ${data.driverId}: [${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}]`);
+        }
+    });
+    ws.on('close', () => {
+        if (currentDriverId) {
+            drivers.delete(currentDriverId);
+            driverSockets.delete(currentDriverId);
+            logToUI(`[System] Driver ${currentDriverId} ngắt kết nối`);
+        }
+    });
+});

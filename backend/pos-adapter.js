@@ -1,3 +1,6 @@
+// (Cổng 4001) Đóng vai trò Consumer kết nối RabbitMQ. Biên dịch dữ liệu JSON sang định dạng SOAP/XML di sản (ADR-001). 
+// Quản lý cơ chế thử lại (Requeue) để tránh mất đơn khi nhà hàng rớt mạng. Khi gửi thành công, 
+// gọi kích hoạt Database và Matching Service.
 const amqp = require('amqplib');
 const axios = require('axios');
 const express = require('express');
@@ -60,18 +63,19 @@ async function startAdapter() {
                 `.trim();
 
                 try {
-                    // 1. Gửi xuống Mock POS
                     await axios.post(MOCK_POS_URL, xmlPayload, {
                         headers: { 'Content-Type': 'text/xml' },
                         timeout: 3000 
                     });
                     sendLog(`Thành công! POS đã nhận.`, 'success');
 
-                    // 2. Cập nhật Database
                     await axios.put(`http://localhost:6000/orders/${orderData.orderId}`, { status: 'COMPLETED' });
                     sendLog(`Đã đồng bộ trạng thái COMPLETED lên Database cho đơn ${orderData.orderId}`, 'success');
 
-                    // 3. Xóa đơn khỏi Queue
+                    // Gọi Matching Engine tìm tài xế (ADR-003)
+                    axios.post('http://localhost:7000/match', { orderId: orderData.orderId }).catch(() => {});
+                    sendLog(`Đã chuyển đơn ${orderData.orderId} cho Matching Engine tìm tài xế`, 'info');
+
                     channel.ack(msg);
                 } catch (error) {
                     sendLog(`LỖI GIAO TIẾP HOẶC DB: ${error.message}`, 'error');

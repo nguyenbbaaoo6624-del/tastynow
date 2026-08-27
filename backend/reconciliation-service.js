@@ -1,4 +1,6 @@
 // Thực thi ADR-004: Đối soát đơn hàng.
+// (Cổng 6001): Tiến trình đối soát chạy ngầm (Batch Processing - ADR-004). 
+// Đối chiếu dữ liệu giữa Database và Mock POS, lọc ra các đơn hàng lỗi/lệch và đẩy vào danh sách Dispute DB.
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -8,6 +10,8 @@ const app = express();
 app.use(cors());
 
 let clients = [];
+const disputeDB = []; 
+
 function sendLog(message, type = 'info') {
     const time = new Date().toLocaleTimeString();
     let icon = '📊';
@@ -16,13 +20,15 @@ function sendLog(message, type = 'info') {
     if(type === 'warn') icon = '⚠️';
     const log = `[${time}] ${icon} ${message}`;
     console.log(log);
-    clients.forEach(c => c.write(`data: ${JSON.stringify({ log })}\n\n`));
+    
+    clients.forEach(c => c.write(`data: ${JSON.stringify({ log, disputes: disputeDB })}\n\n`));
 }
 
 app.get('/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
     clients.push(res);
     req.on('close', () => { clients = clients.filter(c => c !== res); });
 });
@@ -43,30 +49,34 @@ async function runReconciliation() {
 
         dbOrders.forEach(dbOrder => {
             const posOrder = posOrders.find(p => p.orderId === dbOrder.orderId);
-            if (!posOrder) {
-                sendLog(`Lệch dữ liệu: Đơn ${dbOrder.orderId} có trong DB nhưng không có trên POS`, 'error');
+            
+            if (!posOrder || dbOrder.status !== 'COMPLETED') {
+                const existingDispute = disputeDB.find(d => d.orderId === dbOrder.orderId);
+                if (!existingDispute) {
+                    disputeDB.push({
+                        orderId: dbOrder.orderId,
+                        reason: !posOrder ? 'POS mất kết nối/Thiếu dữ liệu' : 'Kẹt ở trạng thái PENDING',
+                        time: new Date().toLocaleTimeString()
+                    });
+                }
                 mismatched++;
-            } else if (dbOrder.status !== 'COMPLETED') {
-                sendLog(`Sai trạng thái: Đơn ${dbOrder.orderId} chưa hoàn tất trong DB nhưng POS đã ghi nhận`, 'warn');
-                mismatched++;
+                sendLog(`Đẩy đơn ${dbOrder.orderId} vào Dispute DB`, 'error');
             } else {
                 matched++;
             }
         });
 
-        sendLog(`KẾT QUẢ ĐỐI SOÁT: Khớp ${matched} đơn | Lệch ${mismatched} đơn`, mismatched > 0 ? 'warn' : 'success');
+        sendLog(`KẾT QUẢ ĐỐI SOÁT: Khớp ${matched} | Đưa vào Dispute DB ${mismatched}`, mismatched > 0 ? 'warn' : 'success');
     } catch (error) {
         sendLog('Lỗi khi lấy dữ liệu đối soát', 'error');
     }
 }
 
-// Chạy tự động mỗi phút (Demo Batch Job)
 cron.schedule('* * * * *', runReconciliation);
 
-// API chạy thủ công từ UI
 app.post('/trigger', (req, res) => {
     runReconciliation();
     res.status(200).send();
 });
 
-app.listen(6001, () => console.log('Reconciliation Service chạy tại cổng 6001'));
+app.listen(6001, () => console.log('Reconciliation Service chạy cổng 6001'));
