@@ -1,102 +1,43 @@
+// Trang chủ điều hướng trung tâm đến 3 phân hệ.
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TastyNow - Complete Architecture Demo</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <title>TastyNow - Chọn Phân Hệ</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .nav-container { display: flex; gap: 20px; justify-content: center; margin-top: 100px; }
+        .nav-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); text-align: center; cursor: pointer; transition: transform 0.2s; width: 300px; }
+        .nav-card:hover { transform: translateY(-5px); }
+        .nav-card a { text-decoration: none; color: inherit; display: block; }
+        .nav-card h2 { margin: 0 0 10px 0; color: #1e293b; }
+        .nav-card p { color: #64748b; font-size: 14px; }
+    </style>
 </head>
 <body>
     <div class="header">
-        <h1>TastyNow Complete Architecture Demo</h1>
-        <p>Tích hợp Đặt món (SLA &lt; 3s, Queue) và Định vị Tài xế (WebSocket, Redis GeoCache)</p>
+        <h1>TastyNow - Microservices Architecture Demo</h1>
+        <p>Chọn phân hệ để kiểm thử</p>
     </div>
-
-    <div class="container">
-        <!-- Ô 1: Customer App -->
-        <div class="card">
-            <div class="card-header">
+    <div class="nav-container">
+        <div class="nav-card">
+            <a href="customer.html" target="_blank">
                 <h2>📱 Customer App</h2>
-                <span id="customer-status" class="status-badge" style="background: #e2e8f0; color: #475569;">CHỜ ĐẶT MÓN</span>
-            </div>
-            <button class="btn btn-order" onclick="placeOrder()">🛒 Xác nhận đặt món (SLA &lt; 3s)</button>
-            <div class="terminal">
-                <div class="terminal-header">
-                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
-                </div>
-                <div id="customer-log" class="log-content"></div>
-            </div>
+                <p>Khách hàng đặt món, theo dõi trạng thái</p>
+            </a>
         </div>
-
-        <!-- Ô 2: RabbitMQ & Adapter -->
-        <div class="card">
-            <div class="card-header">
-                <h2>⚙️ RabbitMQ & POS Adapter</h2>
-                <span id="network-status" class="status-badge status-ok">MẠNG POS ỔN ĐỊNH</span>
-            </div>
-            <button class="btn btn-chaos" onclick="toggleChaos()" id="btn-chaos">🔌 Giả lập sập mạng POS (Chaos Mode)</button>
-            <div class="terminal">
-                <div class="terminal-header">
-                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
-                </div>
-                <div id="adapter-log" class="log-content"></div>
-            </div>
+        <div class="nav-card">
+            <a href="driver.html" target="_blank">
+                <h2>🛵 Driver App</h2>
+                <p>Tài xế đẩy GPS, nhận lệnh Push đơn</p>
+            </a>
         </div>
-
-        <!-- Ô 3: POS System -->
-        <div class="card">
-            <div class="card-header">
-                <h2>🏪 Mock POS System</h2>
-            </div>
-            <div style="height: 48px; margin-bottom: 1rem;"></div>
-            <div class="terminal">
-                <div class="terminal-header">
-                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
-                </div>
-                <div id="pos-log" class="log-content"></div>
-            </div>
-        </div>
-
-        <!-- Ô 4: Driver & Location Service -->
-        <div class="card">
-            <div class="card-header">
-                <h2>🛵 Driver App & Location Service (WebSocket)</h2>
-            </div>
-            <button class="btn btn-driver" onclick="toggleDriver()" id="btn-driver">📡 Bật App Tài xế (Bắt đầu đẩy GPS)</button>
-            
-            <div class="driver-view">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
-                        <span style="color: #64748b; font-size: 0.7rem; margin-left: 5px;">Driver App (Client)</span>
-                    </div>
-                    <div id="driver-log" class="log-content"></div>
-                </div>
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
-                        <span style="color: #64748b; font-size: 0.7rem; margin-left: 5px;">Location Service (Server)</span>
-                    </div>
-                    <div id="location-log" class="log-content"></div>
-                </div>
-            </div>
-        </div>
-        <!-- Ô 5: Reconciliation Service -->
-        <div class="card" style="grid-column: 1 / -1;">
-            <div class="card-header">
-                <h2>📊 Tự động Đối soát (Reconciliation - ADR-004)</h2>
-            </div>
-            <button class="btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);" onclick="triggerRecon()">🔍 Bắt đầu đối soát thủ công</button>
-            <div class="terminal" style="height: 200px;">
-                <div class="terminal-header">
-                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
-                </div>
-                <div id="recon-log" class="log-content"></div>
-            </div>
+        <div class="nav-card">
+            <a href="system.html" target="_blank">
+                <h2>⚙️ System & Restaurant</h2>
+                <p>Nhà hàng, POS Adapter, Đối soát doanh thu</p>
+            </a>
         </div>
     </div>
-
-    <script src="script.js"></script>
 </body>
 </html>

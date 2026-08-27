@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>TastyNow - System & Restaurant Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .dispute-table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fff; }
+        .dispute-table th, .dispute-table td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 14px; }
+        .dispute-table th { background: #f1f5f9; color: #334155; }
+        .dispute-table tr { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>System & Restaurant Dashboard</h1></div>
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <h2>⚙️ RabbitMQ & POS Adapter</h2>
+                <span id="network-status" class="status-badge status-ok">MẠNG POS ỔN ĐỊNH</span>
+            </div>
+            <button id="btn-chaos" class="btn" style="background: linear-gradient(135deg, #ef4444, #dc2626);" onclick="toggleChaos()">🔌 Giả lập sập mạng POS (Chaos Mode)</button>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                </div>
+                <div id="adapter-log" class="log-content"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>🏪 Mock POS System (Legacy)</h2>
+            </div>
+            <div class="terminal" style="margin-top: 50px;">
+                <div class="terminal-header">
+                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                </div>
+                <div id="pos-log" class="log-content"></div>
+            </div>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1;">
+            <div class="card-header">
+                <h2>📊 Tự động Đối soát (Reconciliation - ADR-004)</h2>
+            </div>
+            <button class="btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);" onclick="triggerRecon()">🔍 Bắt đầu đối soát thủ công</button>
+            <div class="terminal" style="height: 200px;">
+                <div class="terminal-header">
+                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                </div>
+                <div id="recon-log" class="log-content"></div>
+            </div>
+            <h3 style="margin-top: 20px; color: #dc2626;">🗄️ Dispute DB (Đơn hàng tranh chấp cần kế toán xử lý)</h3>
+            <table class="dispute-table">
+                <thead>
+                    <tr>
+                        <th>Thời gian</th>
+                        <th>Mã đơn hàng</th>
+                        <th>Nguyên nhân lệch</th>
+                    </tr>
+                </thead>
+                <tbody id="dispute-body">
+                    <tr style="background: white; color: #64748b; text-align: center;"><td colspan="3">Chưa có đơn hàng tranh chấp</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="system.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>TastyNow - Customer App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header"><h1>Customer App - TastyNow</h1></div>
+    <div class="container" style="grid-template-columns: 1fr; max-width: 800px;">
+        <div class="card">
+            <div class="card-header">
+                <h2>📱 Giao diện Đặt món</h2>
+                <span id="customer-status" class="status-badge" style="background: #e2e8f0; color: #475569;">CHỜ ĐẶT MÓN</span>
+            </div>
+            <button class="btn btn-order" onclick="placeOrder()">🛒 Xác nhận đặt món (SLA &lt; 3s)</button>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                </div>
+                <div id="customer-log" class="log-content"></div>
+            </div>
+        </div>
+    </div>
+    <script src="customer.js"></script>
+</body>
+</html>

@@ -1,3 +1,5 @@
+// (Cổng 4000): Giả lập hệ thống máy tính tiền (POS) tại nhà hàng. 
+// Tiếp nhận dữ liệu XML và chứa cơ chế ngắt mạng (Chaos Mode) để kiểm thử khả năng chịu lỗi của hệ thống.
 const express = require('express');
 const cors = require('cors');
 

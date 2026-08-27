@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>TastyNow - Driver App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header"><h1>Driver App - TastyNow</h1></div>
+    <div class="container" style="grid-template-columns: 1fr; max-width: 800px;">
+        <div class="card">
+            <div class="card-header">
+                <h2>🛵 Driver App (WebSocket)</h2>
+            </div>
+            <button id="btn-driver" class="btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);" onclick="toggleDriver()">📡 Bật App Tài xế (Bắt đầu đẩy GPS)</button>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="mac-dot dot-red"></div><div class="mac-dot dot-yellow"></div><div class="mac-dot dot-green"></div>
+                </div>
+                <div id="driver-log" class="log-content"></div>
+            </div>
+        </div>
+    </div>
+    <script src="driver.js"></script>
+</body>
+</html>
